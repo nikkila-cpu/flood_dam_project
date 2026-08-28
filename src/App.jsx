@@ -6,6 +6,7 @@ import { createSimulation } from "./services/api";
 import ProjectsPage from "./components/ProjectsPage";
 import DatasetsPage from "./components/DatasetsPage";
 import FeaturePage from "./components/FeaturePage";
+import ResultsPage from "./components/ResultsPage";
 
 const navigation = ["Dashboard", "Projects", "New simulation", "Datasets", "Scenarios", "Satellite", "Results", "Reports"];
 
@@ -31,7 +32,7 @@ export default function App() {
     if (page === "Datasets") return <DatasetsPage />;
     if (page === "Scenarios") return <FeaturePage title="Scenario comparison" kicker="Phase 7" description="Compare normal, moderate, and extreme dam-break assumptions once results are available." nextStep="Run and process multiple model configurations." />;
     if (page === "Satellite") return <FeaturePage title="Satellite monitoring" kicker="Phase 8" description="Sentinel and Google Earth Engine flood-extent analysis will appear here." nextStep="Connect satellite sources and change-detection processing." />;
-    if (page === "Results") return <FeaturePage title="Simulation results" kicker="Phase 4" description="Queued simulations are recorded in Projects. Flood depths, velocities, and arrival times will be shown here after the basic model is added." nextStep="Implement the first flood-propagation worker." />;
+    if (page === "Results") return <ResultsPage />;
     if (page === "Reports") return <FeaturePage title="Impact reports" kicker="Phase 9" description="Export-ready loss, damage, and exposure reports will be generated from the flood extent." nextStep="Add spatial impact analysis and export generators." />;
     return <>
       <section className="metric-grid">{dashboardMetrics.map((metric) => <article className="metric-card" key={metric.label}><div className="metric-icon">{metric.icon}</div><p>{metric.label}</p><h2>{metric.value}</h2><small>{metric.note}</small></article>)}</section>

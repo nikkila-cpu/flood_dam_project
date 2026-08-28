@@ -44,6 +44,7 @@ class SimulationCreate(BaseModel):
 
 class SimulationRead(SimulationCreate):
     id: int
+    dem_id: int | None = None
     status: str
     progress: int
     error_message: str | None = None

@@ -4,16 +4,19 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import UPLOAD_ROOT, Base, engine, get_db
-from .models import Dataset, Project, Simulation
+from .database import UPLOAD_ROOT, Base, engine, get_db, upgrade_local_schema
+from .models import Dataset, Project, Simulation, SimulationResult
 from .schemas import DatasetRead, ProjectCreate, ProjectRead, SimulationCreate, SimulationRead
+from .services.basic_flood import run_basic_simulation
+from .services.dem_processor import inspect_dem
 
 Base.metadata.create_all(bind=engine)
+upgrade_local_schema()
 
 app = FastAPI(title="FloodSim API", version="0.2.0", description="Dam-break flood analysis platform")
 app.add_middleware(
@@ -74,7 +77,14 @@ def upload_dataset(kind: str, file: UploadFile = File(...), db: Session = Depend
     destination = UPLOAD_ROOT / stored_name
     with destination.open("wb") as output:
         shutil.copyfileobj(file.file, output)
-    dataset = Dataset(name=Path(file.filename or stored_name).stem, kind=kind, filename=file.filename or stored_name, file_path=str(destination), size_bytes=destination.stat().st_size)
+    crs = metadata_json = None
+    if kind == "dem":
+        try:
+            crs, metadata_json = inspect_dem(destination)
+        except ValueError as error:
+            destination.unlink(missing_ok=True)
+            raise HTTPException(status_code=422, detail=str(error)) from error
+    dataset = Dataset(name=Path(file.filename or stored_name).stem, kind=kind, filename=file.filename or stored_name, file_path=str(destination), size_bytes=destination.stat().st_size, crs=crs, metadata_json=metadata_json)
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
@@ -87,13 +97,20 @@ def list_datasets(db: Session = Depends(get_db)):
 
 
 @app.post("/api/simulations", response_model=SimulationRead, status_code=status.HTTP_201_CREATED)
-def create_simulation(payload: SimulationCreate, db: Session = Depends(get_db)):
+def create_simulation(payload: SimulationCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if not db.get(Project, payload.project_id):
         raise HTTPException(status_code=404, detail="Project not found")
+    if payload.model != "basic":
+        raise HTTPException(status_code=422, detail="Only the basic flood model is available in this phase")
+    dem = db.get(Dataset, payload.dem_id) if payload.dem_id else db.scalar(select(Dataset).where(Dataset.kind == "dem").order_by(Dataset.created_at.desc()))
+    if not dem or dem.kind != "dem":
+        raise HTTPException(status_code=422, detail="Upload a valid DEM before creating a simulation")
     simulation = Simulation(**payload.model_dump())
+    simulation.dem_id = dem.id
     db.add(simulation)
     db.commit()
     db.refresh(simulation)
+    background_tasks.add_task(run_basic_simulation, simulation.id)
     return simulation
 
 
@@ -116,3 +133,13 @@ def get_simulation_status(simulation_id: int, db: Session = Depends(get_db)):
     if not simulation:
         raise HTTPException(status_code=404, detail="Simulation not found")
     return {"simulation_id": simulation.id, "status": simulation.status, "progress": simulation.progress}
+
+
+@app.get("/api/simulations/{simulation_id}/result")
+def get_simulation_result(simulation_id: int, db: Session = Depends(get_db)):
+    if not db.get(Simulation, simulation_id):
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    result = db.scalar(select(SimulationResult).where(SimulationResult.simulation_id == simulation_id))
+    if not result:
+        raise HTTPException(status_code=404, detail="Simulation result is not ready")
+    return result

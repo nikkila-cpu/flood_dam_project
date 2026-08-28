@@ -14,7 +14,12 @@ from ..models import Dataset, Simulation, SimulationResult
 
 def _cell_area_m2(source: rasterio.io.DatasetReader) -> float:
     x_resolution, y_resolution = abs(source.res[0]), abs(source.res[1])
-    if source.crs and source.crs.is_geographic:
+    looks_geographic = (
+        source.crs and source.crs.is_geographic
+    ) or (
+        not source.crs and -180 <= source.bounds.left <= 180 and -90 <= source.bounds.bottom <= 90 and x_resolution < 1 and y_resolution < 1
+    )
+    if looks_geographic:
         latitude = (source.bounds.top + source.bounds.bottom) / 2
         return x_resolution * 111_320 * math.cos(math.radians(latitude)) * y_resolution * 110_574
     return x_resolution * y_resolution
@@ -38,7 +43,7 @@ def generate_basic_flood(simulation: Simulation, dataset: Dataset) -> dict:
     geojson_path = output_prefix.with_suffix(".geojson")
     depth_path = output_prefix.with_name(f"{output_prefix.name}_depth.tif")
     with rasterio.open(dataset.file_path) as source:
-        raw_elevation = source.read(1, masked=True)
+        raw_elevation = source.read(1, masked=True).astype(np.float64)
         valid_values = raw_elevation.compressed().astype(np.float64)
         if valid_values.size == 0:
             raise ValueError("The selected DEM has no valid elevation pixels")

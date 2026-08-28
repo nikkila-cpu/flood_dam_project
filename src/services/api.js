@@ -48,6 +48,10 @@ export function listSimulations() {
   return request("/api/simulations");
 }
 
+export function getSimulationResult(simulationId) {
+  return request(`/api/simulations/${simulationId}/result`);
+}
+
 export function createProject(project) {
   return request("/api/projects", { method: "POST", body: JSON.stringify(project) });
 }
