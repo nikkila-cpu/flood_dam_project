@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MapView from "./components/MapView";
 import SimulationForm from "./components/SimulationForm";
 import { dashboardMetrics, dams, projects } from "./data/demoData";
-import { createSimulation } from "./services/api";
+import { createSimulation, listProjects, listSimulations } from "./services/api";
 import ProjectsPage from "./components/ProjectsPage";
 import DatasetsPage from "./components/DatasetsPage";
 import FeaturePage from "./components/FeaturePage";
@@ -17,6 +17,24 @@ export default function App() {
   const [page, setPage] = useState("Dashboard");
   const [selectedDam, setSelectedDam] = useState(dams[0]);
   const [notice, setNotice] = useState("");
+  const [liveProjects, setLiveProjects] = useState(projects);
+  const [simulations, setSimulations] = useState([]);
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const [projectData, simulationData] = await Promise.all([listProjects(), listSimulations()]);
+        setLiveProjects(projectData.length ? projectData : projects);
+        setSimulations(simulationData);
+      } catch {}
+    };
+    loadDashboard();
+    const timer = window.setInterval(loadDashboard, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const locations = liveProjects.map((project) => {
+    const dam = dams.find((item) => item.name === project.dam) || dams.find((item) => item.name.includes(project.dam) || project.dam?.includes(item.name));
+    return dam ? { ...dam, projectName: project.name } : null;
+  }).filter(Boolean);
   const queueSimulation = async (form) => {
     const dam = dams.find((item) => item.id === form.dam);
     setSelectedDam(dam);
@@ -38,9 +56,9 @@ export default function App() {
     if (page === "Results") return <ResultsPage />;
     if (page === "Reports") return <ReportsPage />;
     return <>
-      <section className="metric-grid">{dashboardMetrics.map((metric) => <article className="metric-card" key={metric.label}><div className="metric-icon">{metric.icon}</div><p>{metric.label}</p><h2>{metric.value}</h2><small>{metric.note}</small></article>)}</section>
-      <section className="dashboard-grid"><article className="panel map-panel"><div className="panel-title"><div><span className="eyebrow">Live overview</span><h2>Study locations</h2></div><button className="text-button" onClick={() => setPage("Projects")}>View projects</button></div><MapView selectedDam={selectedDam} onDamSelect={setSelectedDam} /></article>
-      <article className="panel activity-panel"><div className="panel-title"><div><span className="eyebrow">Recent activity</span><h2>Projects</h2></div></div>{projects.map((project) => <button key={project.id} className="project-row" onClick={() => setSelectedDam(dams.find((dam) => dam.name === project.dam) || dams[0])}><span className="project-symbol">⌁</span><span><strong>{project.name}</strong><small>{project.river} · {project.dam}</small></span><em className={project.status === "Active" ? "badge active-badge" : "badge"}>{project.status}</em></button>)}<div className="risk-card"><span>⚠</span><div><strong>Critical zones</strong><small>17 locations require review</small></div><b>17</b></div></article></section>
+      <section className="metric-grid">{dashboardMetrics.map((metric) => <article className="metric-card" key={metric.label}><div className="metric-icon">{metric.icon}</div><p>{metric.label}</p><h2>{metric.label === "Active projects" ? liveProjects.length : metric.label === "Simulations" ? simulations.length : metric.value}</h2><small>{metric.note}</small></article>)}</section>
+      <section className="dashboard-grid"><article className="panel map-panel"><div className="panel-title"><div><span className="eyebrow">Live overview</span><h2>Study locations</h2></div><button className="text-button" onClick={() => setPage("Projects")}>View projects</button></div><MapView selectedDam={selectedDam} onDamSelect={setSelectedDam} locations={locations.length ? locations : dams} /></article>
+      <article className="panel activity-panel"><div className="panel-title"><div><span className="eyebrow">Recent activity</span><h2>Projects</h2></div><button className="text-button" onClick={() => setPage("Projects")}>View all</button></div>{liveProjects.map((project) => <button key={project.id} className="project-row" onClick={() => { const dam = dams.find((item) => item.name === project.dam) || dams.find((item) => item.name.includes(project.dam) || project.dam?.includes(item.name)); if (dam) { setSelectedDam(dam); setPage("Dashboard"); } }}><span className="project-symbol">⌁</span><span><strong>{project.name}</strong><small>{project.river || "River basin not set"} · {project.dam || "Dam not set"}</small></span><em className={project.status === "Active" ? "badge active-badge" : "badge"}>{project.status || "Saved"}</em></button>)}<div className="risk-card"><span>⚠</span><div><strong>Critical zones</strong><small>17 locations require review</small></div><b>17</b></div></article></section>
     </>;
   })();
   return <div className="app-shell">
