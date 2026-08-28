@@ -67,3 +67,14 @@ class SimulationResultRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ScenarioRunCreate(BaseModel):
+    project_id: int
+    dem_id: int | None = None
+    dam: str = Field(min_length=2, max_length=100)
+    water_level: float = Field(gt=0)
+    reservoir_volume: float = Field(gt=0)
+    breach_width: float = Field(gt=0)
+    breach_time: float = Field(gt=0)
+    duration_hours: float = Field(gt=0, le=720)

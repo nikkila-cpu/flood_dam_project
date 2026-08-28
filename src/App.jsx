@@ -7,6 +7,9 @@ import ProjectsPage from "./components/ProjectsPage";
 import DatasetsPage from "./components/DatasetsPage";
 import FeaturePage from "./components/FeaturePage";
 import ResultsPage from "./components/ResultsPage";
+import ScenariosPage from "./components/ScenariosPage";
+import SatellitePage from "./components/SatellitePage";
+import ReportsPage from "./components/ReportsPage";
 
 const navigation = ["Dashboard", "Projects", "New simulation", "Datasets", "Scenarios", "Satellite", "Results", "Reports"];
 
@@ -30,10 +33,10 @@ export default function App() {
     if (page === "New simulation") return <SimulationForm onRun={queueSimulation} />;
     if (page === "Projects") return <ProjectsPage onNewSimulation={() => setPage("New simulation")} />;
     if (page === "Datasets") return <DatasetsPage />;
-    if (page === "Scenarios") return <FeaturePage title="Scenario comparison" kicker="Phase 7" description="Compare normal, moderate, and extreme dam-break assumptions once results are available." nextStep="Run and process multiple model configurations." />;
-    if (page === "Satellite") return <FeaturePage title="Satellite monitoring" kicker="Phase 8" description="Sentinel and Google Earth Engine flood-extent analysis will appear here." nextStep="Connect satellite sources and change-detection processing." />;
+    if (page === "Scenarios") return <ScenariosPage />;
+    if (page === "Satellite") return <SatellitePage />;
     if (page === "Results") return <ResultsPage />;
-    if (page === "Reports") return <FeaturePage title="Impact reports" kicker="Phase 9" description="Export-ready loss, damage, and exposure reports will be generated from the flood extent." nextStep="Add spatial impact analysis and export generators." />;
+    if (page === "Reports") return <ReportsPage />;
     return <>
       <section className="metric-grid">{dashboardMetrics.map((metric) => <article className="metric-card" key={metric.label}><div className="metric-icon">{metric.icon}</div><p>{metric.label}</p><h2>{metric.value}</h2><small>{metric.note}</small></article>)}</section>
       <section className="dashboard-grid"><article className="panel map-panel"><div className="panel-title"><div><span className="eyebrow">Live overview</span><h2>Study locations</h2></div><button className="text-button" onClick={() => setPage("Projects")}>View projects</button></div><MapView selectedDam={selectedDam} onDamSelect={setSelectedDam} /></article>

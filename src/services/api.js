@@ -65,3 +65,11 @@ export function uploadDataset(kind, file) {
   formData.append("file", file);
   return request(`/api/datasets/upload?kind=${encodeURIComponent(kind)}`, { method: "POST", body: formData });
 }
+
+export function runScenarios(payload) {
+  return request("/api/scenarios/run", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function getImpactSummary() {
+  return request("/api/reports/summary");
+}
